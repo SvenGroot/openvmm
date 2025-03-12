@@ -79,7 +79,6 @@ pub use vmbus_core::protocol::GpadlId;
 use vmbus_core::HvsockConnectRequest;
 use vmbus_core::HvsockConnectResult;
 use vmbus_core::MaxVersionInfo;
-use vmbus_core::MonitorPageGpas;
 use vmbus_core::OutgoingMessage;
 use vmbus_core::TaggedStream;
 use vmbus_core::VersionInfo;
@@ -93,6 +92,7 @@ use vmcore::synic::EventPort;
 use vmcore::synic::GuestEventPort;
 use vmcore::synic::GuestMessagePort;
 use vmcore::synic::MessagePort;
+use vmcore::synic::MonitorPageGpas;
 use vmcore::synic::SynicPortAccess;
 
 const SINT: u8 = 2;
@@ -1724,9 +1724,7 @@ impl ServerTaskInner {
 
         if self.enable_mnf {
             if let Some(monitor) = self.synic.monitor_support() {
-                if let Err(err) =
-                    monitor.set_monitor_page(monitor_page.map(|mp| mp.child_to_parent))
-                {
+                if let Err(err) = monitor.set_monitor_page(monitor_page) {
                     anyhow::bail!(
                         "setting monitor page failed, err = {err:?}, monitor_page = {monitor_page:?}"
                     );
