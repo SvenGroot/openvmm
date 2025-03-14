@@ -1146,6 +1146,7 @@ pub struct OpenParams {
     pub monitor_info: Option<MonitorInfo>,
     pub flags: protocol::OpenChannelFlags,
     pub reserved_target: Option<ConnectionTarget>,
+    pub channel_id: ChannelId,
 }
 
 impl OpenParams {
@@ -1177,6 +1178,7 @@ impl OpenParams {
             monitor_info,
             flags: request.flags.with_unused(0),
             reserved_target,
+            channel_id: info.channel_id,
         }
     }
 }
