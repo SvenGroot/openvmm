@@ -7,6 +7,7 @@
 #![expect(unsafe_code)]
 #![expect(clippy::undocumented_unsafe_blocks, clippy::missing_safety_doc)]
 
+use bitfield_struct::bitfield;
 use futures::poll;
 use guestmem::GuestMemory;
 use mesh::CancelContext;
@@ -144,6 +145,22 @@ impl VmbusProxy {
         In: IoBufMut,
         Out: IoBufMut,
     {
+        // SAFETY: guaranteed by caller.
+        let (r, (_, output)) = unsafe { self.file.ioctl(code, input, output).await };
+        r?;
+        Ok(output)
+    }
+
+    async unsafe fn ioctl_cancellable<In, Out>(
+        &self,
+        code: u32,
+        input: In,
+        output: Out,
+    ) -> Result<Out>
+    where
+        In: IoBufMut,
+        Out: IoBufMut,
+    {
         // Don't issue new IO if the cancel context has already been cancelled.
         let mut cancel = self.cancel.clone();
         if cancel.is_cancelled() {
@@ -197,7 +214,7 @@ impl VmbusProxy {
 
     pub async fn next_action(&self) -> Result<ProxyAction> {
         let output = unsafe {
-            self.ioctl(
+            self.ioctl_cancellable(
                 proxyioctl::IOCTL_VMBUS_PROXY_NEXT_ACTION,
                 (),
                 StaticIoctlBuffer(zeroed::<proxyioctl::VMBUS_PROXY_NEXT_ACTION_OUTPUT>()),
@@ -289,8 +306,8 @@ impl VmbusProxy {
         subchannel_index: u16,
         open_params: VMBUS_SERVER_OPEN_CHANNEL_OUTPUT_PARAMETERS,
         open: bool,
-    ) -> Result<u64> {
-        Ok(unsafe {
+    ) -> Result<RestoreResult> {
+        let output = unsafe {
             self.ioctl(
                 proxyioctl::IOCTL_VMBUS_PROXY_RESTORE_CHANNEL,
                 StaticIoctlBuffer(proxyioctl::VMBUS_PROXY_RESTORE_CHANNEL_INPUT {
@@ -304,7 +321,11 @@ impl VmbusProxy {
             )
             .await?
             .0
-            .ChannelId
+        };
+
+        Ok(RestoreResult {
+            proxy_id: output.ChannelId,
+            flags: RestoreFlags::from_bits(output.Flags),
         })
     }
 
@@ -414,4 +435,17 @@ impl VmbusProxy {
         };
         Ok(())
     }
+}
+
+#[bitfield(u32)]
+pub struct RestoreFlags {
+    pub restore_gpadls: bool,
+    #[bits(31)]
+    pub reserved: u32,
+}
+
+#[derive(Debug, Copy, Clone)]
+pub struct RestoreResult {
+    pub proxy_id: u64,
+    pub flags: RestoreFlags,
 }
