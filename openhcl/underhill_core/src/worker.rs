@@ -2787,6 +2787,21 @@ async fn new_underhill_vm(
             false
         };
 
+        let vmbus_dma_client: Option<Arc<dyn user_driver::DmaClient>> = if hardware_isolated {
+            Some(
+                dma_manager
+                    .new_client(DmaClientParameters {
+                        device_name: "vmbus".into(),
+                        lower_vtl_policy: LowerVtlPermissionPolicy::Any,
+                        allocation_visibility: AllocationVisibility::Private,
+                        persistent_allocations: false,
+                    })
+                    .context("vmbus dma client")?,
+            )
+        } else {
+            None
+        };
+
         // N.B. VmBus uses untrusted memory by default for relay channels, and uses additional
         //      trusted memory only for confidential channels offered by Underhill itself.
         let vmbus =
@@ -2801,6 +2816,7 @@ async fn new_underhill_vm(
                     env_cfg.vmbus_force_confidential_external_memory,
                 )
                 .channel_unstick_delay(env_cfg.vmbus_channel_unstick_delay)
+                .dma_client(vmbus_dma_client)
                 // For saved-state compat with release/2411.
                 .send_messages_while_stopped(true)
                 .build()
