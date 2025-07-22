@@ -61,6 +61,7 @@ use std::task::Poll;
 use std::task::ready;
 use std::time::Duration;
 use unicycle::FuturesUnordered;
+use user_driver::DmaClient;
 use vmbus_channel::bus::ChannelRequest;
 use vmbus_channel::bus::ChannelServerRequest;
 use vmbus_channel::bus::GpadlRequest;
@@ -132,6 +133,7 @@ pub struct VmbusServerBuilder<'a, T: Spawn> {
     enable_mnf: bool,
     force_confidential_external_memory: bool,
     send_messages_while_stopped: bool,
+    dma_client: Option<Arc<dyn DmaClient>>,
 }
 
 #[derive(mesh::MeshPayload)]
@@ -287,6 +289,7 @@ impl<'a, T: Spawn> VmbusServerBuilder<'a, T> {
             enable_mnf: false,
             force_confidential_external_memory: false,
             send_messages_while_stopped: false,
+            dma_client: None,
         }
     }
 
@@ -400,6 +403,11 @@ impl<'a, T: Spawn> VmbusServerBuilder<'a, T> {
     /// release is no longer supported.
     pub fn send_messages_while_stopped(mut self, send: bool) -> Self {
         self.send_messages_while_stopped = send;
+        self
+    }
+
+    pub fn dma_client(mut self, dma_client: Option<Arc<dyn DmaClient>>) -> Self {
+        self.dma_client = dma_client;
         self
     }
 
@@ -532,6 +540,7 @@ impl<'a, T: Spawn> VmbusServerBuilder<'a, T> {
             shared_event_port: None,
             reset_done: Vec::new(),
             enable_mnf: self.enable_mnf,
+            dma_client: self.dma_client,
         };
 
         let (task_send, task_recv) = mesh::channel();
@@ -674,6 +683,7 @@ struct ServerTaskInner {
     shared_event_port: Option<Box<dyn Send>>,
     reset_done: Vec<Rpc<(), ()>>,
     enable_mnf: bool,
+    dma_client: Option<Arc<dyn DmaClient>>,
 }
 
 #[derive(Debug)]
@@ -1585,6 +1595,20 @@ impl Notifier for ServerTaskInner {
 
     fn unload_complete(&mut self) {
         self.unreserve_channels();
+    }
+
+    fn allocate_monitor_pages(&self) -> anyhow::Result<Option<user_driver::memory::MemoryBlock>> {
+        if !self.enable_mnf {
+            return Ok(None);
+        }
+
+        let block = if let Some(dma_client) = self.dma_client.as_ref() {
+            Some(dma_client.allocate_dma_buffer(PAGE_SIZE * 2)?)
+        } else {
+            None
+        };
+
+        Ok(block)
     }
 }
 
