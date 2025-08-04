@@ -152,6 +152,8 @@ pub struct Options {
     /// will result in UEFI terminating, shutting down the guest instead of
     /// showing the frontpage.
     pub disable_uefi_frontpage: bool,
+
+    pub vmbus_basic_relay: bool,
 }
 
 impl Options {
@@ -220,6 +222,7 @@ impl Options {
             legacy_openhcl_env("OPENHCL_VMBUS_ENABLE_MNF").map(|v| parse_bool(Some(v)));
         let vmbus_force_confidential_external_memory =
             parse_env_bool("OPENHCL_VMBUS_FORCE_CONFIDENTIAL_EXTERNAL_MEMORY");
+        let vmbus_basic_relay = parse_env_bool("OPENHCL_VMBUS_BASIC_RELAY");
         let cmdline_append =
             legacy_openhcl_env("OPENHCL_CMDLINE_APPEND").map(|x| x.to_string_lossy().into_owned());
         let force_load_vtl0_image = legacy_openhcl_env("OPENHCL_FORCE_LOAD_VTL0_IMAGE")
@@ -308,6 +311,7 @@ impl Options {
             nvme_always_flr,
             test_configuration,
             disable_uefi_frontpage,
+            vmbus_basic_relay,
         })
     }
 

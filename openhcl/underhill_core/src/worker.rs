@@ -288,6 +288,7 @@ pub struct UnderhillEnvCfg {
     pub test_configuration: Option<TestScenarioConfig>,
     /// Disable the UEFI front page.
     pub disable_uefi_frontpage: bool,
+    pub vmbus_basic_relay: bool,
 }
 
 /// Bundle of config + runtime objects for hooking into the underhill remote
@@ -2687,127 +2688,133 @@ async fn new_underhill_vm(
 
     // VMBus
     if with_vmbus {
-        let (source, hcl_vmbus) = vmbus_client_hcl::create_message_source(tp.driver(0))?;
-        let relay =
-            vmbus_basic_relay::VmbusSimpleRelay::start(&tp, source, hcl_vmbus, synic.clone());
+        if env_cfg.vmbus_basic_relay {
+            let (source, hcl_vmbus) = vmbus_client_hcl::create_message_source(tp.driver(0))?;
+            let relay =
+                vmbus_basic_relay::VmbusSimpleRelay::start(&tp, source, hcl_vmbus, synic.clone());
 
-        vmbus_simple_relay = Some(relay);
-        tracing::info!(CVM_ALLOWED, "vmbus relay started");
-        // let (server_relay, hvsock_notify, relay_channels) = if with_vmbus_relay {
-        //     let channel = vmbus_server::VmbusRelayChannel::new();
-        //     let hvsock = vmbus_server::HvsockRelayChannel::new();
-        //     (
-        //         Some(channel.server_half),
-        //         Some(hvsock.server_half),
-        //         Some((channel.relay_half, hvsock.relay_half)),
-        //     )
-        // } else {
-        //     (None, None, None)
-        // };
+            vmbus_simple_relay = Some(relay);
+            tracing::info!(CVM_ALLOWED, "vmbus relay started");
+        } else {
+            let (server_relay, hvsock_notify, relay_channels) = if with_vmbus_relay {
+                let channel = vmbus_server::VmbusRelayChannel::new();
+                let hvsock = vmbus_server::HvsockRelayChannel::new();
+                (
+                    Some(channel.server_half),
+                    Some(hvsock.server_half),
+                    Some((channel.relay_half, hvsock.relay_half)),
+                )
+            } else {
+                (None, None, None)
+            };
 
-        // // If the MNF option value is provided, then use that.
-        // // If the option value is not provided and networking is configured through
-        // // underhill, enable MNF.
-        // let enable_mnf = env_cfg
-        //     .vmbus_enable_mnf
-        //     .unwrap_or(!controllers.mana.is_empty());
-        // tracing::info!(CVM_ALLOWED, enable_mnf, "Underhill MNF enabled?");
+            // If the MNF option value is provided, then use that.
+            // If the option value is not provided and networking is configured through
+            // underhill, enable MNF.
+            let enable_mnf = env_cfg
+                .vmbus_enable_mnf
+                .unwrap_or(!controllers.mana.is_empty());
+            tracing::info!(CVM_ALLOWED, enable_mnf, "Underhill MNF enabled?");
 
-        // let max_version = env_cfg
-        //     .vmbus_max_version
-        //     .map(vmbus_core::MaxVersionInfo::new)
-        //     .or_else(|| {
-        //         // For compatibility with rollback, any additional features are currently disabled,
-        //         // except for isolated guests which do not support servicing.
-        //         (!hardware_isolated).then_some(vmbus_core::MaxVersionInfo {
-        //             version: vmbus_core::protocol::Version::Copper as u32,
-        //             feature_flags: vmbus_core::protocol::FeatureFlags::new()
-        //                 .with_guest_specified_signal_parameters(true)
-        //                 .with_channel_interrupt_redirection(true)
-        //                 .with_modify_connection(true),
-        //         })
-        //     });
+            let max_version = env_cfg
+                .vmbus_max_version
+                .map(vmbus_core::MaxVersionInfo::new)
+                .or_else(|| {
+                    // For compatibility with rollback, any additional features are currently disabled,
+                    // except for isolated guests which do not support servicing.
+                    (!hardware_isolated).then_some(vmbus_core::MaxVersionInfo {
+                        version: vmbus_core::protocol::Version::Copper as u32,
+                        feature_flags: vmbus_core::protocol::FeatureFlags::new()
+                            .with_guest_specified_signal_parameters(true)
+                            .with_channel_interrupt_redirection(true)
+                            .with_modify_connection(true),
+                    })
+                });
 
-        // // Delay the max version if the requested version is older than what the UEFI firmware
-        // // supports.
-        // let delay_max_version = if let Some(max_version) = max_version {
-        //     firmware_type == FirmwareType::Uefi
-        //         && max_version.version < vmbus_core::protocol::Version::Win10 as u32
-        // } else {
-        //     false
-        // };
+            // Delay the max version if the requested version is older than what the UEFI firmware
+            // supports.
+            let delay_max_version = if let Some(max_version) = max_version {
+                firmware_type == FirmwareType::Uefi
+                    && max_version.version < vmbus_core::protocol::Version::Win10 as u32
+            } else {
+                false
+            };
 
-        // // N.B. VmBus uses untrusted memory by default for relay channels, and uses additional
-        // //      trusted memory only for confidential channels offered by Underhill itself.
-        // let vmbus = VmbusServer::builder(&tp, synic.clone(), device_memory.clone())
-        //     .private_gm(gm.cvm_memory().map(|x| &x.private_vtl0_memory).cloned())
-        //     .hvsock_notify(hvsock_notify)
-        //     .server_relay(server_relay)
-        //     .max_version(max_version)
-        //     .delay_max_version(delay_max_version)
-        //     .enable_mnf(enable_mnf)
-        //     .force_confidential_external_memory(env_cfg.vmbus_force_confidential_external_memory)
-        //     // For saved-state compat with release/2411.
-        //     .send_messages_while_stopped(true)
-        //     .build()
-        //     .context("failed to create vmbus server")?;
+            // N.B. VmBus uses untrusted memory by default for relay channels, and uses additional
+            //      trusted memory only for confidential channels offered by Underhill itself.
+            let vmbus = VmbusServer::builder(&tp, synic.clone(), device_memory.clone())
+                .private_gm(gm.cvm_memory().map(|x| &x.private_vtl0_memory).cloned())
+                .hvsock_notify(hvsock_notify)
+                .server_relay(server_relay)
+                .max_version(max_version)
+                .delay_max_version(delay_max_version)
+                .enable_mnf(enable_mnf)
+                .force_confidential_external_memory(
+                    env_cfg.vmbus_force_confidential_external_memory,
+                )
+                // For saved-state compat with release/2411.
+                .send_messages_while_stopped(true)
+                .build()
+                .context("failed to create vmbus server")?;
 
-        // let vmbus = VmbusServerHandle::new(&tp, state_units.add("vmbus"), vmbus)?;
-        // if let Some((relay_channel, hvsock_relay)) = relay_channels {
-        //     let relay_driver = tp.driver(0);
-        //     let builder = vmbus_client_hcl::vmbus_client_builder(relay_driver)
-        //         .context("failed to create synic client and message source")?;
+            let vmbus = VmbusServerHandle::new(&tp, state_units.add("vmbus"), vmbus)?;
+            if let Some((relay_channel, hvsock_relay)) = relay_channels {
+                let relay_driver = tp.driver(0);
+                let builder = vmbus_client_hcl::vmbus_client_builder(relay_driver)
+                    .context("failed to create synic client and message source")?;
 
-        //     let mut client = builder.build(tp);
-        //     let connection = if let Some(state) = servicing_state.vmbus_client.flatten() {
-        //         client.restore(state).await?
-        //     } else {
-        //         None
-        //     };
-        //     client.start();
-        //     let connection = if let Some(c) = connection {
-        //         c
-        //     } else {
-        //         // Unique ID used so that the host knows which client this is,
-        //         // for diagnosing failures.
-        //         const OPENHCL_CLIENT_ID: Guid = guid::guid!("ceb1cd55-6a3b-41c5-9473-4dd30624c3d8");
-        //         client
-        //             .connect(0, None, OPENHCL_CLIENT_ID)
-        //             .await
-        //             .context("failed to connect to vmbus")?
-        //     };
+                let mut client = builder.build(tp);
+                let connection = if let Some(state) = servicing_state.vmbus_client.flatten() {
+                    client.restore(state).await?
+                } else {
+                    None
+                };
+                client.start();
+                let connection = if let Some(c) = connection {
+                    c
+                } else {
+                    // Unique ID used so that the host knows which client this is,
+                    // for diagnosing failures.
+                    const OPENHCL_CLIENT_ID: Guid =
+                        guid::guid!("ceb1cd55-6a3b-41c5-9473-4dd30624c3d8");
+                    client
+                        .connect(0, None, OPENHCL_CLIENT_ID)
+                        .await
+                        .context("failed to connect to vmbus")?
+                };
 
-        //     let mut intercept_list = Vec::new();
-        //     if intercept_shutdown_ic {
-        //         let (send, recv) = mesh::channel();
-        //         intercept_list.push((hyperv_ic_guest::shutdown::INSTANCE_ID, send));
-        //         intercepted_shutdown_ic = Some(recv);
-        //     }
+                let mut intercept_list = Vec::new();
+                if intercept_shutdown_ic {
+                    let (send, recv) = mesh::channel();
+                    intercept_list.push((hyperv_ic_guest::shutdown::INSTANCE_ID, send));
+                    intercepted_shutdown_ic = Some(recv);
+                }
 
-        //     let vmbus_relay = vmbus_relay::HostVmbusTransport::new(
-        //         relay_driver.clone(),
-        //         Arc::clone(vmbus.control()),
-        //         relay_channel,
-        //         hvsock_relay,
-        //         client.access().clone(),
-        //         connection,
-        //         intercept_list,
-        //     )
-        //     .await
-        //     .context("failed to create host vmbus transport")?;
+                let vmbus_relay = vmbus_relay::HostVmbusTransport::new(
+                    relay_driver.clone(),
+                    Arc::clone(vmbus.control()),
+                    relay_channel,
+                    hvsock_relay,
+                    client.access().clone(),
+                    connection,
+                    intercept_list,
+                )
+                .await
+                .context("failed to create host vmbus transport")?;
 
-        //     host_vmbus_relay = Some(VmbusRelayHandle::new(
-        //         &tp,
-        //         state_units
-        //             .add("vmbus_relay")
-        //             .depends_on(vmbus.unit_handle()),
-        //         vmbus_relay,
-        //     )?);
+                host_vmbus_relay = Some(VmbusRelayHandle::new(
+                    &tp,
+                    state_units
+                        .add("vmbus_relay")
+                        .depends_on(vmbus.unit_handle()),
+                    vmbus_relay,
+                )?);
 
-        //     vmbus_client = Some(client);
-        // };
+                vmbus_client = Some(client);
+            };
 
-        // vmbus_server = Some(vmbus);
+            vmbus_server = Some(vmbus);
+        }
     }
 
     let mut vmbus_device_handles = controllers.vmbus_devices;
