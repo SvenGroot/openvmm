@@ -2677,8 +2677,7 @@ async fn new_underhill_vm(
     // N.B. Skip enabling if restoring from a previous version that did not use
     //      a shutdown relay, otherwise would have to rescind the host shutdown
     //      channel from the lower-VTL guest before taking control.
-    let intercept_shutdown_ic = !hardware_isolated
-        && (!is_restoring || servicing_state.overlay_shutdown_device.unwrap_or(false));
+    let intercept_shutdown_ic = false;
     let mut intercepted_shutdown_ic = None;
 
     let mut vmbus_server = None;

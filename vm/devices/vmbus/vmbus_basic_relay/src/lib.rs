@@ -6,8 +6,6 @@ use pal_async::task::Spawn;
 use pal_async::task::Task;
 use std::sync::Arc;
 use std::task::Poll;
-use std::thread;
-use std::u32;
 use vmbus_async::async_dgram::AsyncRecvExt;
 use vmbus_client::VmbusMessageSource;
 use vmbus_core::OutgoingMessage;
@@ -150,7 +148,7 @@ impl MessagePort for RelayMessagePort {
     ) -> Poll<()> {
         const VERSION: VersionInfo = VersionInfo {
             version: protocol::Version::Copper,
-            feature_flags: protocol::FeatureFlags::from_bits(u32::MAX),
+            feature_flags: protocol::FeatureFlags::new(),
         };
         if let Ok(parsed) = protocol::Message::parse(msg, Some(VERSION)) {
             tracing::info!(?parsed, "guest message");
