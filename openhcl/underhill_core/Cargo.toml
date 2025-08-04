@@ -107,6 +107,7 @@ vmbus_relay.workspace = true
 vmbus_relay_intercept_device.workspace = true
 vmbus_serial_guest.workspace = true
 vmbus_server.workspace = true
+vmbus_basic_relay.workspace = true
 vpci.workspace = true
 watchdog_core.workspace = true
 watchdog_vmgs_format.workspace = true

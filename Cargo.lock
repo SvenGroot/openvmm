@@ -7602,6 +7602,7 @@ dependencies = [
  "vm_resource",
  "vm_topology",
  "vmbus_async",
+ "vmbus_basic_relay",
  "vmbus_channel",
  "vmbus_client",
  "vmbus_client_hcl",
@@ -8451,6 +8452,33 @@ dependencies = [
  "thiserror 2.0.12",
  "vmbus_channel",
  "vmbus_ring",
+ "zerocopy 0.8.24",
+]
+
+[[package]]
+name = "vmbus_basic_relay"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "futures-concurrency",
+ "guid",
+ "hcl",
+ "hvdef",
+ "inspect",
+ "mesh",
+ "pal_async",
+ "pal_event",
+ "thiserror 2.0.12",
+ "tracelimit",
+ "tracing",
+ "user_driver",
+ "vmbus_async",
+ "vmbus_channel",
+ "vmbus_client",
+ "vmbus_core",
+ "vmbus_ring",
+ "vmcore",
  "zerocopy 0.8.24",
 ]
 

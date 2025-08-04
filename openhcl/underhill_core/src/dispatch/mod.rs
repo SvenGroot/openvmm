@@ -154,6 +154,7 @@ pub(crate) struct LoadedVm {
     pub vmbus_server: Option<VmbusServerHandle>,
     // contain task handles which must be kept live
     pub host_vmbus_relay: Option<VmbusRelayHandle>,
+    pub vmbus_simple_relay: Option<vmbus_basic_relay::VmbusSimpleRelay>,
     // channels are revoked when dropped, so make sure to keep them alive
     pub _vmbus_devices: Vec<SpawnedUnit<ChannelUnit<dyn VmbusDevice>>>,
     pub _vmbus_intercept_devices: Vec<mesh::OneshotSender<()>>,

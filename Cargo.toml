@@ -45,7 +45,7 @@ members = [
   "petri/petri-tool",
   "vm/loader/igvmfilegen",
   "vm/vmgs/vmgs_lib",
-  "vm/vmgs/vmgstool",
+  "vm/vmgs/vmgstool", "vm/devices/vmbus/vmbus_basic_relay",
 ]
 exclude = [
   "xsync",
@@ -325,6 +325,7 @@ vmbus_client_hcl = { path = "vm/devices/vmbus/vmbus_client_hcl" }
 vmbus_core = { path = "vm/devices/vmbus/vmbus_core" }
 vmbus_proxy = { path = "vm/devices/vmbus/vmbus_proxy" }
 vmbus_relay = { path = "vm/devices/vmbus/vmbus_relay" }
+vmbus_basic_relay = { path = "vm/devices/vmbus/vmbus_basic_relay" }
 vmbus_relay_intercept_device = { path = "vm/devices/vmbus/vmbus_relay_intercept_device" }
 vmbus_ring = { path = "vm/devices/vmbus/vmbus_ring" }
 vmbus_serial_guest = { path = "vm/devices/serial/vmbus_serial_guest" }

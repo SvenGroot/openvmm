@@ -60,6 +60,25 @@ pub fn vmbus_client_builder<T: Driver + ?Sized>(driver: &T) -> anyhow::Result<Vm
     Ok(VmbusClientBuilder::new(synic, msg_source, poster))
 }
 
+/// Creates a new message source and HCL vmbus instance.
+pub fn create_message_source(
+    driver: &impl Driver,
+) -> anyhow::Result<(Box<dyn VmbusMessageSource>, Arc<HclVmbus>)> {
+    let hcl_vmbus = Arc::new(HclVmbus::new().context("failed to open hcl_vmbus")?);
+    let vmbus_fd = HclVmbus::new()
+        .context("failed to open hcl_vmbus")?
+        .into_inner();
+
+    let pipe = PolledPipe::new(driver, vmbus_fd).context("failed to created PolledPipe")?;
+    Ok((
+        Box::new(HclMessageSource {
+            pipe,
+            hcl_vmbus: Arc::clone(&hcl_vmbus),
+        }),
+        hcl_vmbus,
+    ))
+}
+
 struct HclSynicPoster {
     hcl_vmbus: Arc<HclVmbus>,
     timer: PolledTimer,
