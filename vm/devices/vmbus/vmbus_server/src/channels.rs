@@ -2714,7 +2714,14 @@ impl<'a, N: 'a + Notifier> ServerWithNotifier<'a, N> {
         gpadl_id: GpadlId,
         gpadl: &Gpadl,
     ) -> bool {
-        if channel.state.is_revoked() {
+        const TIMESYNC_INTERFACE_ID: Guid = guid::guid!("{9527E630-D0AE-497B-ADCE-E80AB0175CAF}");
+        if channel.state.is_revoked() || channel.offer.interface_id == TIMESYNC_INTERFACE_ID {
+            tracelimit::error_ratelimited!(
+                key = %channel.offer.key(),
+                gpadl_id = ?gpadl_id,
+                revoked = channel.state.is_revoked(),
+                "failed gpadl",
+            );
             let channel_id = channel.info.as_ref().expect("assigned").channel_id;
             sender.send_gpadl_created(channel_id, gpadl_id, protocol::STATUS_UNSUCCESSFUL);
             false
