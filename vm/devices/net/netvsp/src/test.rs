@@ -595,7 +595,7 @@ impl TestNicDevice {
         let open_request = OpenRequest {
             // Channel open-specific data.
             open_data: OpenData {
-                target_vp: 0,
+                target_vp: Some(0),
                 ring_offset: 2,
                 ring_gpadl_id,
                 event_flag: 1,
@@ -646,7 +646,7 @@ impl TestNicDevice {
         let open_request = OpenRequest {
             // Channel open-specific data.
             open_data: OpenData {
-                target_vp: idx,
+                target_vp: Some(idx),
                 ring_offset: 2,
                 ring_gpadl_id,
                 event_flag: 1,
@@ -696,7 +696,9 @@ impl TestNicDevice {
     }
 
     pub async fn retarget_vp(&self, vp: u32) {
-        let modify_request = ModifyRequest::TargetVp { target_vp: vp };
+        let modify_request = ModifyRequest::TargetVp {
+            target_vp: Some(vp),
+        };
         let send_request = self.send_to_channel(
             0,
             ChannelRequest::Modify,
@@ -773,7 +775,7 @@ impl TestNicDevice {
                                         Ok(vmbus_channel::bus::RestoreResult {
                                             open_request: Some(OpenRequest {
                                                 open_data: OpenData {
-                                                    target_vp: 0,
+                                                    target_vp: Some(0),
                                                     ring_offset: 2,
                                                     ring_gpadl_id,
                                                     event_flag: 1,

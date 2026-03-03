@@ -1589,6 +1589,8 @@ impl Notifier for ServerTaskInner {
             }
             channels::Action::Modify { target_vp } => {
                 if let ChannelState::Open(state) = &mut channel.state {
+                    let target_vp =
+                        (target_vp != protocol::VP_INDEX_DISABLE_INTERRUPT).then_some(target_vp);
                     if let Err(err) = state.guest_event_port.set_target_vp(target_vp) {
                         tracelimit::error_ratelimited!(
                             error = &err as &dyn std::error::Error,
@@ -1785,7 +1787,7 @@ impl ServerTaskInner {
         // For pre-Win8 guests, the host-to-guest event always targets vp 0 and the channel
         // bitmap is used instead of the event flag.
         let (target_vp, event_flag) = if self.channel_bitmap.is_some() {
-            (0, 0)
+            (Some(0), 0)
         } else {
             (open_params.open_data.target_vp, open_params.event_flag)
         };

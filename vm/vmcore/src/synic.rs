@@ -84,11 +84,13 @@ pub trait SynicPortAccess: Send + Sync {
     ///
     /// The `monitor_info` parameter is ignored if the synic does not support outgoing monitored
     /// interrupts.
+    ///
+    /// If the VP is not specified, the event port is disabled.
     fn new_guest_event_port(
         &self,
         port_id: u32,
         vtl: Vtl,
-        vp: u32,
+        vp: Option<u32>,
         sint: u8,
         flag: u16,
         monitor_info: Option<MonitorInfo>,
@@ -134,7 +136,7 @@ pub trait GuestEventPort: Send + Sync {
     fn interrupt(&self) -> Interrupt;
 
     /// Updates the target VP for the event port.
-    fn set_target_vp(&mut self, vp: u32) -> Result<(), HypervisorError>;
+    fn set_target_vp(&mut self, vp: Option<u32>) -> Result<(), HypervisorError>;
 }
 
 /// A guest message port, created by [`SynicPortAccess::new_guest_message_port`].

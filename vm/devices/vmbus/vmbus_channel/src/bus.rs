@@ -113,7 +113,7 @@ pub enum ModifyRequest {
     /// Change the target VP to `target_vp`.
     TargetVp {
         /// The new target VP.
-        target_vp: u32,
+        target_vp: Option<u32>,
     },
 }
 
@@ -183,7 +183,7 @@ pub trait ParentBus: Send + Sync {
 #[derive(Debug, Copy, Clone, mesh::MeshPayload)]
 pub struct OpenData {
     /// The target VP for interrupts to the guest.
-    pub target_vp: u32,
+    pub target_vp: Option<u32>,
     /// The page offset into the ring GPADL of the host-to-guest ring buffer.
     pub ring_offset: u32,
     /// The ring buffer's GPADL ID.

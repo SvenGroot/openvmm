@@ -999,7 +999,7 @@ impl virt::Synic for UhPartition {
     fn new_guest_event_port(
         &self,
         vtl: Vtl,
-        vp: u32,
+        vp: Option<u32>,
         sint: u8,
         flag: u16,
     ) -> Box<dyn vmcore::synic::GuestEventPort> {
@@ -1007,7 +1007,7 @@ impl virt::Synic for UhPartition {
         Box::new(UhEventPort {
             partition: Arc::downgrade(&self.inner),
             params: Arc::new(Mutex::new(UhEventPortParams {
-                vp: VpIndex::new(vp),
+                vp: vp.map(VpIndex::new),
                 sint,
                 flag,
                 vtl,
@@ -1191,7 +1191,7 @@ struct UhEventPort {
 
 #[derive(Debug, Copy, Clone)]
 struct UhEventPortParams {
-    vp: VpIndex,
+    vp: Option<VpIndex>,
     sint: u8,
     flag: u16,
     vtl: GuestVtl,
@@ -1209,6 +1209,10 @@ impl vmcore::synic::GuestEventPort for UhEventPort {
                 vtl,
             } = *params.lock();
             let Some(partition) = partition.upgrade() else {
+                return;
+            };
+            let Some(vp) = vp else {
+                // Disabled event port, nothing to do on interrupt.
                 return;
             };
             tracing::trace!(vp = vp.index(), sint, flag, "signal_event");
@@ -1247,8 +1251,8 @@ impl vmcore::synic::GuestEventPort for UhEventPort {
         })
     }
 
-    fn set_target_vp(&mut self, vp: u32) -> Result<(), vmcore::synic::HypervisorError> {
-        self.params.lock().vp = VpIndex::new(vp);
+    fn set_target_vp(&mut self, vp: Option<u32>) -> Result<(), vmcore::synic::HypervisorError> {
+        self.params.lock().vp = vp.map(VpIndex::new);
         Ok(())
     }
 }

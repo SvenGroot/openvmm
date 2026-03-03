@@ -176,7 +176,7 @@ impl SynicPortAccess for SynicPorts {
         &self,
         _port_id: u32,
         vtl: Vtl,
-        vp: u32,
+        vp: Option<u32>,
         sint: u8,
         flag: u16,
         _monitor_info: Option<MonitorInfo>,

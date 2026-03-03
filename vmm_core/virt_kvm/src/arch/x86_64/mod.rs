@@ -1268,7 +1268,7 @@ impl virt::Synic for KvmPartition {
     fn new_guest_event_port(
         &self,
         _vtl: Vtl,
-        vp: u32,
+        vp: Option<u32>,
         sint: u8,
         flag: u16,
     ) -> Box<dyn GuestEventPort> {
@@ -1276,7 +1276,7 @@ impl virt::Synic for KvmPartition {
             partition: Arc::downgrade(&self.inner),
             gm: self.inner.gm.clone(),
             params: Arc::new(Mutex::new(KvmEventPortParams {
-                vp: VpIndex::new(vp),
+                vp: vp.map(VpIndex::new),
                 sint,
                 flag,
             })),
@@ -1304,7 +1304,7 @@ struct KvmGuestEventPort {
 
 #[derive(Debug, Copy, Clone)]
 struct KvmEventPortParams {
-    vp: VpIndex,
+    vp: Option<VpIndex>,
     sint: u8,
     flag: u16,
 }
@@ -1318,6 +1318,9 @@ impl GuestEventPort for KvmGuestEventPort {
                 sint,
                 flag,
             } = *this.params.lock();
+            let Some(vp_index) = vp_index else {
+                return;
+            };
             let Some(partition) = this.partition.upgrade() else {
                 return;
             };
@@ -1361,8 +1364,8 @@ impl GuestEventPort for KvmGuestEventPort {
         })
     }
 
-    fn set_target_vp(&mut self, vp: u32) -> Result<(), vmcore::synic::HypervisorError> {
-        self.params.lock().vp = VpIndex::new(vp);
+    fn set_target_vp(&mut self, vp: Option<u32>) -> Result<(), vmcore::synic::HypervisorError> {
+        self.params.lock().vp = vp.map(VpIndex::new);
         Ok(())
     }
 }

@@ -1476,14 +1476,14 @@ impl virt::Synic for MshvPartition {
     fn new_guest_event_port(
         &self,
         _vtl: Vtl,
-        vp: u32,
+        vp: Option<u32>,
         sint: u8,
         flag: u16,
     ) -> Box<dyn GuestEventPort> {
         Box::new(MshvGuestEventPort {
             partition: Arc::downgrade(&self.inner),
             params: Arc::new(Mutex::new(MshvEventPortParams {
-                vp: VpIndex::new(vp),
+                vp: vp.map(VpIndex::new),
                 sint,
                 flag,
             })),
@@ -1504,7 +1504,7 @@ struct MshvGuestEventPort {
 
 #[derive(Debug, Copy, Clone)]
 struct MshvEventPortParams {
-    vp: VpIndex,
+    vp: Option<VpIndex>,
     sint: u8,
     flag: u16,
 }
@@ -1515,6 +1515,9 @@ impl GuestEventPort for MshvGuestEventPort {
         let params = self.params.clone();
         Interrupt::from_fn(move || {
             let MshvEventPortParams { vp, sint, flag } = *params.lock();
+            let Some(vp) = vp else {
+                return;
+            };
             if let Some(partition) = partition.upgrade() {
                 partition
                     .vmfd
@@ -1529,8 +1532,8 @@ impl GuestEventPort for MshvGuestEventPort {
         })
     }
 
-    fn set_target_vp(&mut self, vp: u32) -> Result<(), vmcore::synic::HypervisorError> {
-        self.params.lock().vp = VpIndex::new(vp);
+    fn set_target_vp(&mut self, vp: Option<u32>) -> Result<(), vmcore::synic::HypervisorError> {
+        self.params.lock().vp = vp.map(VpIndex::new);
         Ok(())
     }
 }

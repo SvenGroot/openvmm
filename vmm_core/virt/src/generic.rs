@@ -641,7 +641,7 @@ pub trait Synic: Send + Sync {
     fn new_guest_event_port(
         &self,
         vtl: Vtl,
-        vp: u32,
+        vp: Option<u32>,
         sint: u8,
         flag: u16,
     ) -> Box<dyn GuestEventPort>;

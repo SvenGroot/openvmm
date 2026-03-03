@@ -71,7 +71,7 @@ pub trait VmbusDevice: Send + Any + InspectMut {
     async fn close(&mut self, channel_idx: u16);
 
     /// Notifies the device that interrupts for channel will now target `target_vp`.
-    async fn retarget_vp(&mut self, channel_idx: u16, target_vp: u32);
+    async fn retarget_vp(&mut self, channel_idx: u16, target_vp: Option<u32>);
 
     /// Start processing of all channels.
     fn start(&mut self);

@@ -339,7 +339,7 @@ pub struct InitiateContactRequest {
 pub struct OpenRequest {
     pub open_id: u32,
     pub ring_buffer_gpadl_id: GpadlId,
-    pub target_vp: u32,
+    pub target_vp: Option<u32>,
     pub downstream_ring_buffer_page_offset: u32,
     pub user_data: UserDefinedData,
     pub guest_specified_interrupt_info: Option<SignalInfo>,
@@ -3008,7 +3008,8 @@ impl<'a, N: 'a + Notifier> ServerWithNotifier<'a, N> {
         let request = OpenRequest {
             open_id: input.open_channel.open_id,
             ring_buffer_gpadl_id: input.open_channel.ring_buffer_gpadl_id,
-            target_vp: input.open_channel.target_vp,
+            target_vp: (input.open_channel.target_vp != protocol::VP_INDEX_DISABLE_INTERRUPT)
+                .then_some(input.open_channel.target_vp),
             downstream_ring_buffer_page_offset: input
                 .open_channel
                 .downstream_ring_buffer_page_offset,
@@ -3108,7 +3109,7 @@ impl<'a, N: 'a + Notifier> ServerWithNotifier<'a, N> {
         let request = OpenRequest {
             ring_buffer_gpadl_id: input.ring_buffer_gpadl,
             // Interrupts are disabled for reserved channels; this matches Hyper-V behavior.
-            target_vp: protocol::VP_INDEX_DISABLE_INTERRUPT,
+            target_vp: None,
             downstream_ring_buffer_page_offset: input.downstream_page_offset,
             open_id: 0,
             user_data: UserDefinedData::new_zeroed(),
@@ -3407,7 +3408,8 @@ impl<'a, N: 'a + Notifier> ServerWithNotifier<'a, N> {
             );
 
             // Update the stored open_request so that save/restore will use the new value.
-            open_request.target_vp = request.target_vp;
+            open_request.target_vp = (request.target_vp != protocol::VP_INDEX_DISABLE_INTERRUPT)
+                .then_some(request.target_vp);
             *modify_state = ModifyState::Modifying {
                 pending_target_vp: None,
             };

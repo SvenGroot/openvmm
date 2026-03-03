@@ -90,7 +90,7 @@ impl GuestEventPort for MockGuestPort {
         Interrupt::null()
     }
 
-    fn set_target_vp(&mut self, _vp: u32) -> Result<(), vmcore::synic::HypervisorError> {
+    fn set_target_vp(&mut self, _vp: Option<u32>) -> Result<(), vmcore::synic::HypervisorError> {
         Ok(())
     }
 }
@@ -179,7 +179,7 @@ impl SynicPortAccess for MockSynic {
         &self,
         _port_id: u32,
         _vtl: Vtl,
-        _vp: u32,
+        _vp: Option<u32>,
         _sint: u8,
         _flag: u16,
         _monitor_info: Option<MonitorInfo>,
@@ -558,8 +558,11 @@ impl TestDeviceState {
     pub fn target_vp(this: &Arc<Mutex<Self>>, channel_idx: u16) -> Option<u32> {
         this.lock().target_vps.get(&channel_idx).copied()
     }
-    pub fn set_target_vp(this: &Arc<Mutex<Self>>, channel_idx: u16, target_vp: u32) {
-        let _ = this.lock().target_vps.insert(channel_idx, target_vp);
+    pub fn set_target_vp(this: &Arc<Mutex<Self>>, channel_idx: u16, target_vp: Option<u32>) {
+        let _ = this.lock().target_vps.insert(
+            channel_idx,
+            target_vp.unwrap_or(protocol::VP_INDEX_DISABLE_INTERRUPT),
+        );
     }
 }
 
@@ -628,7 +631,7 @@ impl VmbusDevice for TestDevice {
         assert!(TestDeviceState::remove_open_request(&self.state, channel_idx).is_some());
     }
 
-    async fn retarget_vp(&mut self, channel_idx: u16, target_vp: u32) {
+    async fn retarget_vp(&mut self, channel_idx: u16, target_vp: Option<u32>) {
         TestDeviceState::set_target_vp(&self.state, channel_idx, target_vp);
     }
 

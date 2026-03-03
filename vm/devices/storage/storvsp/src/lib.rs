@@ -1526,7 +1526,7 @@ impl StorageDevice {
         let driver = self
             .driver_source
             .builder()
-            .target_vp(open_request.open_data.target_vp)
+            .target_vp(open_request.open_data.target_vp.unwrap_or_default())
             .run_on_target(true)
             .build(format!("storvsp-{}-{}", self.instance_id, channel_index));
 
@@ -1563,7 +1563,7 @@ impl StorageDevice {
 
         self.workers[channel_index as usize]
             .driver
-            .retarget_vp(open_request.open_data.target_vp);
+            .retarget_vp(open_request.open_data.target_vp.unwrap_or_default());
 
         Ok(self.workers[channel_index as usize].worker.insert(
             &driver,
@@ -1725,10 +1725,10 @@ impl VmbusDevice for StorageDevice {
         }
     }
 
-    async fn retarget_vp(&mut self, channel_index: u16, target_vp: u32) {
+    async fn retarget_vp(&mut self, channel_index: u16, target_vp: Option<u32>) {
         self.workers[channel_index as usize]
             .driver
-            .retarget_vp(target_vp);
+            .retarget_vp(target_vp.unwrap_or_default());
     }
 
     fn start(&mut self) {

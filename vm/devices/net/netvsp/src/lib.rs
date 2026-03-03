@@ -165,7 +165,7 @@ enum CoordinatorMessage {
 
 struct Worker<T: RingMem> {
     channel_idx: u16,
-    target_vp: u32,
+    target_vp: Option<u32>,
     mem: GuestMemory,
     channel: NetChannel<T>,
     state: WorkerState,
@@ -1346,7 +1346,7 @@ impl VmbusDevice for Nic {
         }
     }
 
-    async fn retarget_vp(&mut self, channel_idx: u16, target_vp: u32) {
+    async fn retarget_vp(&mut self, channel_idx: u16, target_vp: Option<u32>) {
         if !self.coordinator.has_state() {
             return;
         }
@@ -1358,7 +1358,7 @@ impl VmbusDevice for Nic {
         let (net_queue, worker_state) = worker.get_mut();
 
         // Update the target VP on the driver.
-        net_queue.driver.retarget_vp(target_vp);
+        net_queue.driver.retarget_vp(target_vp.unwrap_or_default());
 
         if let Some(worker_state) = worker_state {
             // Update the target VP in the worker state.
@@ -1437,7 +1437,7 @@ impl Nic {
             .task()
             .driver
             .clone();
-        driver.retarget_vp(open_request.open_data.target_vp);
+        driver.retarget_vp(open_request.open_data.target_vp.unwrap_or_default());
 
         let raw = gpadl_channel(&driver, &self.resources, open_request, channel_idx)
             .map_err(OpenError::Ring)?;
@@ -4686,16 +4686,16 @@ impl<T: RingMem + 'static> Worker<T> {
                 }
                 WorkerState::Ready(state) => {
                     let queue_state = if let Some(queue_state) = &mut queue.queue_state {
-                        if !queue_state.target_vp_set
-                            && self.target_vp != vmbus_core::protocol::VP_INDEX_DISABLE_INTERRUPT
-                        {
-                            tracing::debug!(
-                                channel_idx = self.channel_idx,
-                                target_vp = self.target_vp,
-                                "updating target VP"
-                            );
-                            queue_state.queue.update_target_vp(self.target_vp).await;
-                            queue_state.target_vp_set = true;
+                        if !queue_state.target_vp_set {
+                            if let Some(target_vp) = self.target_vp {
+                                tracing::debug!(
+                                    channel_idx = self.channel_idx,
+                                    target_vp,
+                                    "updating target VP"
+                                );
+                                queue_state.queue.update_target_vp(target_vp).await;
+                                queue_state.target_vp_set = true;
+                            }
                         }
 
                         queue_state

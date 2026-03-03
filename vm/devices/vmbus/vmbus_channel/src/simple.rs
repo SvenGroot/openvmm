@@ -204,7 +204,8 @@ impl<T: SimpleVmbusDevice> SimpleDeviceWrapper<T> {
         &mut self,
         open_request: &OpenRequest,
     ) -> anyhow::Result<RawAsyncChannel<GpadlRingMem>> {
-        self.driver.retarget_vp(open_request.open_data.target_vp);
+        self.driver
+            .retarget_vp(open_request.open_data.target_vp.unwrap_or_default());
         let channel = gpadl_channel(&self.driver, &self.resources, open_request, 0)?;
         Ok(channel)
     }
@@ -245,8 +246,8 @@ impl<T: SimpleVmbusDevice> VmbusDevice for SimpleDeviceWrapper<T> {
         self.device.task_mut().0.close().await;
     }
 
-    async fn retarget_vp(&mut self, _channel_idx: u16, target_vp: u32) {
-        self.driver.retarget_vp(target_vp);
+    async fn retarget_vp(&mut self, _channel_idx: u16, target_vp: Option<u32>) {
+        self.driver.retarget_vp(target_vp.unwrap_or_default());
     }
 
     fn start(&mut self) {
