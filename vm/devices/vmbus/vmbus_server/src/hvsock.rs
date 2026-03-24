@@ -12,7 +12,6 @@ use super::Guid;
 use crate::HvsockRelayChannelHalf;
 use crate::ring::RingMem;
 use anyhow::Context;
-use fs_err::PathExt;
 use futures::AsyncReadExt;
 use futures::AsyncWriteExt;
 use futures::StreamExt;
@@ -317,14 +316,6 @@ impl Drop for PendingConnection {
 // AF_HYPERV service ID.
 static VSOCK_TEMPLATE: Guid = guid::guid!("00000000-facb-11e6-bd58-64006a7986d3");
 
-fn vsock_port(service_id: &Guid) -> Option<u32> {
-    let stripped_id = Guid {
-        data1: 0,
-        ..*service_id
-    };
-    (VSOCK_TEMPLATE == stripped_id).then_some(service_id.data1)
-}
-
 struct HvsockRelayWorker {
     guest_send: mesh::Sender<HvsockConnectResult>,
     tasks: FuturesUnordered<Task<()>>,
@@ -375,9 +366,9 @@ impl HvsockRelayWorker {
             send: self.guest_send.clone(),
             request,
         };
-        let (path, is_specific_path) = {
+        let path = {
             if let Some(hybrid_vsock_path) = &self.hybrid_vsock_path {
-                (hybrid_vsock_path.to_owned(), false)
+                hybrid_vsock_path.to_owned()
             } else {
                 tracing::debug!(request = ?&request, "ignoring hvsock connect request");
                 return;
@@ -393,7 +384,7 @@ impl HvsockRelayWorker {
                 let inner = self.inner.clone();
                 async move {
                     match inner
-                        .relay_guest_connect_to_host(pending, path.as_ref(), is_specific_path)
+                        .relay_guest_connect_to_host(pending, path.as_ref())
                         .await
                     {
                         Ok(()) => {
@@ -419,7 +410,6 @@ impl RelayInner {
         &self,
         pending: PendingConnection,
         base_path: &Path,
-        is_specific_path: bool,
     ) -> anyhow::Result<()> {
         let request = &pending.request;
 
@@ -427,7 +417,8 @@ impl RelayInner {
         // channel with the guest has been established, since that's a
         // failure-prone operation and we don't want the host to see a broken
         // connection.
-        let path = self.host_uds_path(request, base_path, is_specific_path)?;
+        let vsock_request = hybrid_vsock::ConnectionRequest::ServiceId(request.service_id);
+        let path = vsock_request.host_uds_path(base_path)?;
 
         let mut offer = Offer::new(
             self.driver.as_ref(),
@@ -494,36 +485,6 @@ impl RelayInner {
         // before the relay is done.
         drop(offer);
         Ok(())
-    }
-
-    fn host_uds_path(
-        &self,
-        request: &HvsockConnectRequest,
-        base_path: &Path,
-        is_specific_path: bool,
-    ) -> anyhow::Result<PathBuf> {
-        let mut path = base_path.as_os_str().to_owned();
-        if !is_specific_path {
-            if let Some(port) = vsock_port(&request.service_id) {
-                // This is a vsock connection, so try connecting after appending the
-                // port to the path.
-                path.push(format!("_{port}"));
-                if Path::new(&path).fs_err_try_exists()? {
-                    return Ok(path.into());
-                }
-                path.clear();
-                path.push(base_path);
-            }
-            path.push(format!("_{}", request.service_id));
-        }
-        if !Path::new(&path).fs_err_try_exists()? {
-            anyhow::bail!(
-                "no hybrid vsock listener based at {} for {}",
-                base_path.display(),
-                request.service_id
-            );
-        }
-        Ok(path.into())
     }
 
     async fn connect_to_guest(&self, service_id: Guid) -> anyhow::Result<(UnixStream, Task<()>)> {
