@@ -9113,6 +9113,7 @@ version = "0.0.0"
 dependencies = [
  "mesh",
  "net_backend_resources",
+ "unix_socket",
  "vm_resource",
 ]
 
@@ -9165,6 +9166,7 @@ dependencies = [
  "pal_async",
  "pal_event",
  "parking_lot",
+ "socket2",
  "task_control",
  "tempfile",
  "test_with_tracing",
