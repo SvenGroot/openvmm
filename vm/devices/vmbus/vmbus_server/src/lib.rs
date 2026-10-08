@@ -2,7 +2,7 @@
 // Licensed under the MIT License.
 
 #![expect(missing_docs)]
-#![forbid(unsafe_code)]
+#![allow(unsafe_code)]
 
 mod channel_bitmap;
 pub mod channels;

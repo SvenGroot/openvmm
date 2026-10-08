@@ -1385,6 +1385,9 @@ impl Server {
         use_absolute_channel_order: bool,
         support_gpa_pinning: bool,
     ) -> Self {
+        unsafe {
+            windows::Win32::System::Diagnostics::Debug::DebugBreak();
+        }
         Server {
             state: ConnectionState::Disconnected,
             channels: ChannelList::new(),
